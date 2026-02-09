@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import UploadContractModal from './UploadContractModal';
 
 // Simple SVG icons for sidebar and header
@@ -55,6 +56,16 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   ),
+  chat: (
+    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg>
+  ),
+  search: (
+    <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+  ),
   calendar: (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -67,61 +78,118 @@ const Icons = {
   ),
 };
 
-const navItems = [
-  { icon: Icons.chart, label: 'Dashboard', active: true },
-  { icon: Icons.user, label: 'Users', active: false },
-  { icon: Icons.document, label: 'Contracts', active: false },
-  { icon: Icons.bell, label: 'Notification', active: false },
-  { icon: Icons.gear, label: 'Settings', active: false },
+const mainNavItems = [
+  { icon: Icons.chart, label: 'Dashboard', path: '/dashboard' },
+  { icon: Icons.user, label: 'Users', path: '/dashboard' },
+  { icon: Icons.document, label: 'Contracts', path: '/contracts' },
+  { icon: Icons.bell, label: 'Notification', path: '/dashboard' },
+];
+const footerNavItems = [
+  { icon: Icons.gear, label: 'Settings', path: '/dashboard' },
+  { icon: Icons.chat, label: 'Help & Support', path: '/dashboard', badge: '24' },
 ];
 
 export default function DashboardLayout({ children }) {
   const [expanded, setExpanded] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
-
   const openUploadModal = () => setUploadModalOpen(true);
   const closeUploadModal = () => setUploadModalOpen(false);
 
   return (
     <div className="min-h-screen flex bg-[#f3f4f6]">
-      {/* Left Sidebar - white, hover to expand */}
+      {/* Left Sidebar - expand on hover */}
       <aside
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
-        className={`bg-white border-r border-gray-200 flex flex-col py-4 transition-all duration-300 ease-in-out ${
+        className={`bg-gray-100 border-r border-gray-200 flex flex-col py-4 transition-all duration-300 ease-in-out ${
           expanded ? 'w-56' : 'w-20'
         }`}
       >
-        {/* Header: truck + brand */}
-        <div className={`flex items-center gap-2 mb-6 ${expanded ? 'px-4' : 'px-2 justify-center'}`}>
+        {/* Header: truck + brand + collapse chevron when expanded */}
+        <div className={`flex items-center gap-2 mb-4 ${expanded ? 'px-4' : 'px-2 justify-center'}`}>
           <div className="flex-shrink-0">{Icons.truck}</div>
           {expanded && (
-            <span className="flex-1 text-gray-800 font-semibold truncate">Dispo Dron</span>
+            <>
+              <span className="flex-1 text-gray-800 font-semibold truncate">Dispo Dron</span>
+              <span className="flex-shrink-0 text-gray-400" aria-hidden="true">{Icons.chevronLeft}</span>
+            </>
           )}
         </div>
 
-        {/* Navigation items - blue icons */}
+        {/* Search */}
+        {expanded && (
+          <div className="px-3 mb-4">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2">{Icons.search}</span>
+              <input
+                type="search"
+                placeholder="Search"
+                className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 bg-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)]"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Main navigation */}
         <nav className={`flex-1 space-y-1 ${expanded ? 'px-3' : 'px-2'}`}>
-          {navItems.map((item, i) => (
-            <button
-              key={i}
-              className={`w-full flex items-center gap-3 py-2.5 rounded-lg transition-colors ${
-                expanded ? 'px-3 justify-start' : 'px-0 justify-center'
-              } ${
-                item.active
-                  ? 'bg-[var(--color-primary)]/10'
-                  : 'hover:bg-[var(--color-primary)]/10'
-              }`}
+          {mainNavItems.map((item) => (
+            <NavLink
+              key={item.path + item.label}
+              to={item.path}
+              className={({ isActive: active }) =>
+                `w-full flex items-center gap-3 py-2.5 rounded-lg transition-colors ${
+                  expanded ? 'px-3 justify-start' : 'px-0 justify-center'
+                } ${active ? 'bg-[var(--color-primary)]/10' : 'hover:bg-[var(--color-primary)]/10'}`
+              }
             >
-              <span className="flex-shrink-0 flex items-center justify-center text-[var(--color-primary)]">
-                {item.icon}
-              </span>
-              {expanded && (
-                <span className={`text-sm font-medium truncate ${item.active ? 'text-[var(--color-primary)]' : 'text-gray-700'}`}>{item.label}</span>
+              {({ isActive: active }) => (
+                <>
+                  <span className="flex-shrink-0 flex items-center justify-center text-[var(--color-primary)]">
+                    {item.icon}
+                  </span>
+                  {expanded && (
+                    <span className={`text-sm font-medium truncate ${active ? 'text-[var(--color-primary)]' : 'text-gray-700'}`}>
+                      {item.label}
+                    </span>
+                  )}
+                </>
               )}
-            </button>
+            </NavLink>
           ))}
         </nav>
+
+        {/* Settings & Help & Support */}
+        <div className={`space-y-1 ${expanded ? 'px-3' : 'px-2'}`}>
+          {footerNavItems.map((item) => (
+            <NavLink
+              key={item.path + item.label}
+              to={item.path}
+              className={({ isActive: active }) =>
+                `w-full flex items-center gap-3 py-2.5 rounded-lg transition-colors ${
+                  expanded ? 'px-3 justify-start' : 'px-0 justify-center'
+                } ${active ? 'bg-[var(--color-primary)]/10' : 'hover:bg-[var(--color-primary)]/10'}`
+              }
+            >
+              {({ isActive: active }) => (
+                <>
+                  <span className="flex-shrink-0 relative flex items-center justify-center text-[var(--color-primary)]">
+                    {item.icon}
+                    {item.badge && expanded && (
+                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-[var(--color-primary)] text-white text-xs flex items-center justify-center px-1">
+                        {item.badge}
+                      </span>
+                    )}
+                  </span>
+                  {expanded && (
+                    <span className={`text-sm font-medium truncate ${active ? 'text-[var(--color-primary)]' : 'text-gray-700'}`}>
+                      {item.label}
+                    </span>
+                  )}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </div>
 
         {/* Footer: profile */}
         <div className={`mt-auto pt-4 border-t border-gray-200 ${expanded ? 'px-3' : 'px-2'}`}>
