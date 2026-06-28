@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
+import ContractFormModal from '../components/ContractFormModal';
+import { listContracts, createContract, updateContract, deleteContract } from '../api/contracts';
 
 const STATUS_STYLES = {
   Loaded: 'bg-blue-100 text-blue-800',
@@ -12,16 +14,32 @@ const STATUS_STYLES = {
   Unloaded: 'bg-emerald-200 text-emerald-900',
 };
 
-const MOCK_CONTRACTS = [
-  { id: 1, contractNr: '1234567890', clientName: 'Client Name', carrierName: 'Carrier Name', loadingDate: '01/03/2025', unloadingDate: '10/03/2025', status: 'Loaded' },
-  { id: 2, contractNr: '1234567890', clientName: 'Client Name', carrierName: 'Carrier Name', loadingDate: '01/03/2025', unloadingDate: '10/03/2025', status: 'Unl. & New Loading Point' },
-  { id: 3, contractNr: '1234567890', clientName: 'Client Name', carrierName: 'Carrier Name', loadingDate: '01/03/2025', unloadingDate: '10/03/2025', status: 'Unloading' },
-  { id: 4, contractNr: '1234567890', clientName: 'Client Name', carrierName: 'Carrier Name', loadingDate: '01/03/2025', unloadingDate: '10/03/2025', status: 'Load/Unload' },
-  { id: 5, contractNr: '1234567890', clientName: 'Client Name', carrierName: 'Carrier Name', loadingDate: '01/03/2025', unloadingDate: '10/03/2025', status: 'Problems' },
-  { id: 6, contractNr: '1234567890', clientName: 'Client Name', carrierName: 'Carrier Name', loadingDate: '01/03/2025', unloadingDate: '10/03/2025', status: 'Cross the Border' },
-  { id: 7, contractNr: '1234567890', clientName: 'Client Name', carrierName: 'Carrier Name', loadingDate: '01/03/2025', unloadingDate: '10/03/2025', status: 'Still no info' },
-  { id: 8, contractNr: '1234567890', clientName: 'Client Name', carrierName: 'Carrier Name', loadingDate: '01/03/2025', unloadingDate: '10/03/2025', status: 'Unloaded' },
+const CONTRACT_STATUSES = [
+  'Loaded',
+  'Unl. & New Loading Point',
+  'Unloading',
+  'Problems',
+  'Cross the Border',
+  'Still no info',
+  'Unloaded',
 ];
+
+const EDITABLE_FIELDS = ['contractNr', 'clientName', 'carrierName', 'loadingDate', 'unloadingDate', 'status'];
+
+const inputClass = 'w-full min-w-0 px-2 py-1 text-sm border border-[var(--color-primary)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
+
+/** Format API date (YYYY-MM-DD) for table display */
+function formatDate(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** Get YYYY-MM-DD for date inputs */
+function toInputDate(iso) {
+  if (!iso) return '';
+  return String(iso).slice(0, 10);
+}
 
 const DocumentIcon = ({ className = 'w-5 h-5' }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -59,15 +77,123 @@ const UploadDocIcon = () => (
   </svg>
 );
 
-const EllipsisIcon = () => (
-  <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+const EditIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+  </svg>
+);
+
+const DeleteIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
   </svg>
 );
 
 export default function Contracts() {
-  const [activeTab, setActiveTab] = useState('all');
-  const [selectedIds, setSelectedIds] = useState(new Set([1]));
+  const [contracts, setContracts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingContract, setEditingContract] = useState(null);
+  const [statusFilter, setStatusFilter] = useState(null); // null = all, or status string
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [editingCell, setEditingCell] = useState(null); // { rowId, field }
+  const [savingCell, setSavingCell] = useState(false);
+
+  const fetchContracts = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const list = await listContracts(statusFilter);
+      setContracts(list);
+    } catch (err) {
+      setError(err.message || 'Failed to load contracts');
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    fetchContracts();
+  }, [fetchContracts]);
+
+  const handleModalClose = () => {
+    setModalOpen(false);
+    setEditingContract(null);
+    fetchContracts();
+  };
+
+  const handleCreate = () => {
+    setEditingContract(null);
+    setModalOpen(true);
+  };
+
+  const handleEdit = (row) => {
+    setEditingContract(row);
+    setModalOpen(true);
+  };
+
+  const handleDelete = async (row) => {
+    if (!window.confirm(`Delete contract "${row.contractNr}"?`)) return;
+    try {
+      await deleteContract(row.id);
+      await fetchContracts();
+    } catch (err) {
+      setError(err.message || 'Failed to delete contract');
+    }
+  };
+
+  const handleSubmitContract = async (form) => {
+    if (editingContract) {
+      await updateContract(editingContract.id, form);
+    } else {
+      await createContract(form);
+    }
+  };
+
+  const handleCellDoubleClick = (rowId, field) => {
+    if (!EDITABLE_FIELDS.includes(field)) return;
+    setEditingCell({ rowId, field });
+  };
+
+  const handleInlineSave = async (row, field, value) => {
+    if (!editingCell || editingCell.rowId !== row.id || editingCell.field !== field) return;
+    const trimmed = typeof value === 'string' ? value.trim() : value;
+    const current = row[field];
+    if (trimmed === current || (field.startsWith('loading') || field.startsWith('unloading') ? trimmed === (current?.slice?.(0, 10) ?? current) : false)) {
+      setEditingCell(null);
+      return;
+    }
+    setSavingCell(true);
+    setEditingCell(null);
+    try {
+      const form = {
+        contractNr: row.contractNr,
+        clientName: row.clientName,
+        carrierName: row.carrierName,
+        loadingDate: row.loadingDate?.slice?.(0, 10) ?? row.loadingDate,
+        unloadingDate: row.unloadingDate?.slice?.(0, 10) ?? row.unloadingDate,
+        status: row.status,
+      };
+      form[field] = trimmed;
+      const updated = await updateContract(row.id, form);
+      setContracts((prev) => prev.map((c) => (c.id === row.id ? updated : c)));
+    } catch (err) {
+      setError(err.message || 'Update failed');
+    } finally {
+      setSavingCell(false);
+    }
+  };
+
+  const handleInlineKeyDown = (e, row, field, value) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleInlineSave(row, field, value);
+    } else if (e.key === 'Escape') {
+      setEditingCell(null);
+    }
+  };
 
   const toggleSelect = (id) => {
     setSelectedIds((prev) => {
@@ -79,18 +205,12 @@ export default function Contracts() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === MOCK_CONTRACTS.length) {
+    if (selectedIds.size === contracts.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(MOCK_CONTRACTS.map((c) => c.id)));
+      setSelectedIds(new Set(contracts.map((c) => c.id)));
     }
   };
-
-  const tabs = [
-    { id: 'all', label: 'All Contracts', icon: DocumentIcon },
-    { id: 'loaded', label: 'Loaded', icon: BoxIcon },
-    { id: 'unloaded', label: 'Unloaded', icon: BoxOpenIcon },
-  ];
 
   return (
     <DashboardLayout>
@@ -101,11 +221,45 @@ export default function Contracts() {
             <DocumentIcon />
             <span className="text-xl font-semibold">Contracts</span>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="w-10 h-10 rounded-lg border border-[var(--color-primary)] bg-white text-[var(--color-primary)] flex items-center justify-center hover:bg-[var(--color-primary)]/5 transition-colors" aria-label="Filter">
-              <FilterIcon />
-            </button>
-            <button className="w-10 h-10 rounded-lg bg-[var(--color-primary)] text-white flex items-center justify-center hover:opacity-90 transition-opacity" aria-label="Add contract">
+          <div className="flex items-center gap-2 relative">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setFilterOpen((o) => !o)}
+                className={`w-10 h-10 rounded-lg border flex items-center justify-center transition-colors ${
+                  statusFilter ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'border-[var(--color-primary)] bg-white text-[var(--color-primary)] hover:bg-[var(--color-primary)]/5'
+                }`}
+                aria-label="Filter by status"
+                aria-expanded={filterOpen}
+              >
+                <FilterIcon />
+              </button>
+              {filterOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" aria-hidden onClick={() => setFilterOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-20 py-1 min-w-[200px] bg-white border border-gray-200 rounded-lg shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => { setStatusFilter(null); setFilterOpen(false); }}
+                      className={`w-full text-left px-3 py-2 text-sm ${statusFilter === null ? 'bg-gray-100 font-medium text-[var(--color-primary)]' : 'text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      All statuses
+                    </button>
+                    {CONTRACT_STATUSES.map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => { setStatusFilter(status); setFilterOpen(false); }}
+                        className={`w-full text-left px-3 py-2 text-sm ${statusFilter === status ? 'bg-gray-100 font-medium text-[var(--color-primary)]' : 'text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <button type="button" onClick={handleCreate} className="w-10 h-10 rounded-lg bg-[var(--color-primary)] text-white flex items-center justify-center hover:opacity-90 transition-opacity" aria-label="Add contract">
               <PlusIcon />
             </button>
             <button className="w-10 h-10 rounded-lg bg-[var(--color-primary)] text-white flex items-center justify-center hover:opacity-90 transition-opacity" aria-label="Upload">
@@ -114,90 +268,205 @@ export default function Contracts() {
           </div>
         </div>
 
-        {/* Tabs + table card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {/* Tabs only */}
-          <div className="border-b border-gray-200">
-            <div className="flex gap-1 px-6 pt-4 pb-3">
-              {tabs.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveTab(id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === id
-                      ? 'bg-gray-100 text-[var(--color-text-primary)]'
-                      : 'text-[var(--color-text-secondary)] hover:bg-gray-50'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${activeTab === id ? 'text-gray-700' : 'text-gray-400'}`} />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg">{error}</p>
+        )}
 
+        {/* Table card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-[var(--color-bg-subtle)] border-b border-gray-200">
-                  <th className="text-left py-3 px-4 w-12">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.size === MOCK_CONTRACTS.length}
-                      onChange={toggleSelectAll}
-                      className="rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
-                    />
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Contract Nr.</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Client Name</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Carrier Name</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Loading Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Unloading Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700 w-20">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MOCK_CONTRACTS.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="border-b border-gray-100 hover:bg-gray-50/80 transition-colors"
-                  >
-                    <td className="py-3 px-4">
+            {loading ? (
+              <div className="py-12 text-center text-[var(--color-text-secondary)]">Loading contracts…</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[var(--color-bg-subtle)] border-b border-gray-200">
+                    <th className="text-left py-3 px-4 w-12">
                       <input
                         type="checkbox"
-                        checked={selectedIds.has(row.id)}
-                        onChange={() => toggleSelect(row.id)}
+                        checked={contracts.length > 0 && selectedIds.size === contracts.length}
+                        onChange={toggleSelectAll}
                         className="rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
                       />
-                    </td>
-                    <td className="py-3 px-4 text-[var(--color-text-primary)]">{row.contractNr}</td>
-                    <td className="py-3 px-4 text-[var(--color-text-primary)]">{row.clientName}</td>
-                    <td className="py-3 px-4 text-[var(--color-text-primary)]">{row.carrierName}</td>
-                    <td className="py-3 px-4 text-[var(--color-text-secondary)]">{row.loadingDate}</td>
-                    <td className="py-3 px-4 text-[var(--color-text-secondary)]">{row.unloadingDate}</td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                          STATUS_STYLES[row.status] || 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <button className="p-1 rounded hover:bg-gray-200 text-gray-500 transition-colors" aria-label="Row actions">
-                        <EllipsisIcon />
-                      </button>
-                    </td>
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Contract Nr.</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Client Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Carrier Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Loading Date</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Unloading Date</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {contracts.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-[var(--color-text-secondary)]">
+                        No contracts yet. Click the + button to create one.
+                      </td>
+                    </tr>
+                  ) : (
+                    contracts.map((row) => (
+                      <tr
+                        key={row.id}
+                        className="border-b border-gray-100 hover:bg-gray-50/80 transition-colors"
+                      >
+                        <td className="py-3 px-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(row.id)}
+                            onChange={() => toggleSelect(row.id)}
+                            className="rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
+                          />
+                        </td>
+                        <td
+                          className="py-3 px-4 text-[var(--color-text-primary)] cursor-text"
+                          onDoubleClick={() => handleCellDoubleClick(row.id, 'contractNr')}
+                        >
+                          {editingCell?.rowId === row.id && editingCell?.field === 'contractNr' ? (
+                            <input
+                              type="text"
+                              className={inputClass}
+                              defaultValue={row.contractNr}
+                              autoFocus
+                              onBlur={(e) => handleInlineSave(row, 'contractNr', e.target.value)}
+                              onKeyDown={(e) => handleInlineKeyDown(e, row, 'contractNr', e.target.value)}
+                            />
+                          ) : (
+                            row.contractNr
+                          )}
+                        </td>
+                        <td
+                          className="py-3 px-4 text-[var(--color-text-primary)] cursor-text"
+                          onDoubleClick={() => handleCellDoubleClick(row.id, 'clientName')}
+                        >
+                          {editingCell?.rowId === row.id && editingCell?.field === 'clientName' ? (
+                            <input
+                              type="text"
+                              className={inputClass}
+                              defaultValue={row.clientName}
+                              autoFocus
+                              onBlur={(e) => handleInlineSave(row, 'clientName', e.target.value)}
+                              onKeyDown={(e) => handleInlineKeyDown(e, row, 'clientName', e.target.value)}
+                            />
+                          ) : (
+                            row.clientName
+                          )}
+                        </td>
+                        <td
+                          className="py-3 px-4 text-[var(--color-text-primary)] cursor-text"
+                          onDoubleClick={() => handleCellDoubleClick(row.id, 'carrierName')}
+                        >
+                          {editingCell?.rowId === row.id && editingCell?.field === 'carrierName' ? (
+                            <input
+                              type="text"
+                              className={inputClass}
+                              defaultValue={row.carrierName}
+                              autoFocus
+                              onBlur={(e) => handleInlineSave(row, 'carrierName', e.target.value)}
+                              onKeyDown={(e) => handleInlineKeyDown(e, row, 'carrierName', e.target.value)}
+                            />
+                          ) : (
+                            row.carrierName
+                          )}
+                        </td>
+                        <td
+                          className="py-3 px-4 text-[var(--color-text-secondary)] cursor-text"
+                          onDoubleClick={() => handleCellDoubleClick(row.id, 'loadingDate')}
+                        >
+                          {editingCell?.rowId === row.id && editingCell?.field === 'loadingDate' ? (
+                            <input
+                              type="date"
+                              className={inputClass}
+                              defaultValue={toInputDate(row.loadingDate)}
+                              autoFocus
+                              onBlur={(e) => handleInlineSave(row, 'loadingDate', e.target.value)}
+                              onKeyDown={(e) => handleInlineKeyDown(e, row, 'loadingDate', e.target.value)}
+                            />
+                          ) : (
+                            formatDate(row.loadingDate)
+                          )}
+                        </td>
+                        <td
+                          className="py-3 px-4 text-[var(--color-text-secondary)] cursor-text"
+                          onDoubleClick={() => handleCellDoubleClick(row.id, 'unloadingDate')}
+                        >
+                          {editingCell?.rowId === row.id && editingCell?.field === 'unloadingDate' ? (
+                            <input
+                              type="date"
+                              className={inputClass}
+                              defaultValue={toInputDate(row.unloadingDate)}
+                              autoFocus
+                              onBlur={(e) => handleInlineSave(row, 'unloadingDate', e.target.value)}
+                              onKeyDown={(e) => handleInlineKeyDown(e, row, 'unloadingDate', e.target.value)}
+                            />
+                          ) : (
+                            formatDate(row.unloadingDate)
+                          )}
+                        </td>
+                        <td
+                          className="py-3 px-4 cursor-text"
+                          onDoubleClick={() => handleCellDoubleClick(row.id, 'status')}
+                        >
+                          {editingCell?.rowId === row.id && editingCell?.field === 'status' ? (
+                            <select
+                              className={inputClass}
+                              defaultValue={row.status}
+                              autoFocus
+                              onBlur={(e) => handleInlineSave(row, 'status', e.target.value)}
+                              onKeyDown={(e) => handleInlineKeyDown(e, row, 'status', e.target.value)}
+                            >
+                              {CONTRACT_STATUSES.map((s) => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span
+                              className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                                STATUS_STYLES[row.status] || 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              {row.status}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(row)}
+                              className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-[var(--color-primary)] transition-colors"
+                              aria-label="Edit contract"
+                            >
+                              <EditIcon />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(row)}
+                              className="p-2 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+                              aria-label="Delete contract"
+                            >
+                              <DeleteIcon />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
+
+      <ContractFormModal
+        isOpen={modalOpen}
+        onClose={handleModalClose}
+        initialContract={editingContract}
+        onSubmit={handleSubmitContract}
+      />
     </DashboardLayout>
   );
 }

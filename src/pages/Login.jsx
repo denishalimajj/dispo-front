@@ -1,18 +1,28 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
+import ErrorMessage from '../components/ui/ErrorMessage';
+import { login } from '../api/auth';
 
 export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await login(email, password);
       navigate('/dashboard');
-    }, 2000);
+    } catch (err) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,6 +52,7 @@ export default function Login() {
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
+            <ErrorMessage message={error} onDismiss={() => setError('')} />
             <div>
               <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
                 Email Address
@@ -49,6 +60,9 @@ export default function Login() {
               <input
                 type="email"
                 placeholder="dispodron@mail.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
                 className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-[var(--radius-md)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
               />
             </div>
@@ -59,6 +73,9 @@ export default function Login() {
               <input
                 type="password"
                 placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
                 className="w-full px-4 py-2.5 border border-[var(--color-border)] rounded-[var(--radius-md)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
               />
             </div>

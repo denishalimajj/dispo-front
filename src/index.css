@@ -53,13 +53,112 @@
 }
 
 @layer utilities {
-    @keyframes wave-motion {
-      0% { transform: translateX(0); }
-      50% { transform: translateX(-25px); }
-      100% { transform: translateX(0); }
+  @keyframes wave-motion {
+    0% { transform: translateX(0); }
+    50% { transform: translateX(-25px); }
+    100% { transform: translateX(0); }
+  }
+
+  .animate-wave {
+    animation: wave-motion 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0) translateZ(0); }
+    50% { transform: translateY(-12px) translateZ(0); }
+  }
+
+  @keyframes float-slow {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-8px) scale(1.02); }
+  }
+
+  @keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
     }
-  
-    .animate-wave {
-      animation: wave-motion 6s ease-in-out infinite;
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  .animate-float-slow {
+    animation: float-slow 5s ease-in-out infinite;
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.7s ease-out forwards;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.5s ease-out forwards;
+  }
+
+  .perspective-card {
+    transform-style: preserve-3d;
+    perspective: 1000px;
+  }
+
+  .gradient-mesh {
+    background: linear-gradient(135deg, var(--color-primary) 0%, #3b4fd9 40%, #2d3bb8 100%);
+    background-size: 200% 200%;
+    animation: gradient-shift 12s ease infinite;
+  }
+
+  /* 3D truck scene */
+  .truck-scene {
+    perspective: 1200px;
+    transform-style: preserve-3d;
+  }
+
+  .truck-stage {
+    transform-style: preserve-3d;
+    transition: transform 0.15s ease-out;
+  }
+
+  .truck-part {
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+  }
+
+  @keyframes truck-idle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  .animate-truck-idle {
+    animation: truck-idle 3s ease-in-out infinite;
+  }
+
+  @keyframes wheel-roll {
+    from { transform: rotateZ(0deg); }
+    to { transform: rotateZ(360deg); }
+  }
+
+  .animate-wheel-roll {
+    animation: wheel-roll 1.5s linear infinite;
+  }
+}

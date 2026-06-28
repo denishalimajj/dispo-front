@@ -18,7 +18,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="w-full md:w-1/2 flex items-center justify-center px-8 py-16 animate-fade-in-right bg-white">
+      <div className="w-full md:w-1/2 flex items-center justify-center px-8 py-16 bg-white">
         <div className="w-full max-w-sm space-y-6">
           <div>
             <h2 className="text-3xl font-bold text-[var(--color-text-primary)]">
