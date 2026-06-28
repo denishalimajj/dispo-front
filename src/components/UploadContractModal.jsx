@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 
-const ACCEPTED_TYPES = ['doc', 'docx', 'pdf', 'xls', 'xlsx'];
+const ACCEPTED_TYPES = ['doc', 'docx', 'pdf', 'xls', 'xlsx', 'png', 'jpg', 'jpeg'];
 const MAX_SIZE_MB = 5;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
@@ -43,11 +43,59 @@ function getFileIcon(filename) {
   return ext === 'pdf' ? 'pdf' : 'doc';
 }
 
+const EyeIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+  </svg>
+);
+
+function PreviewModal({ file, onClose }) {
+  if (!file) return null;
+  const isImage = /\.(png|jpe?g)$/i.test(file.name);
+  const url = file._url;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} aria-hidden="true" />
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Preview</h2>
+          <button onClick={onClose} className="p-2 rounded-lg text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 transition-colors" aria-label="Close">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="p-6 flex items-center justify-center min-h-[300px] bg-gray-50">
+          {isImage && url ? (
+            <img src={url} alt={file.name} className="max-w-full max-h-[500px] object-contain rounded-lg shadow" />
+          ) : (
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-3 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <p className="font-medium text-[var(--color-text-primary)]">{file.name}</p>
+              <p className="text-sm text-[var(--color-text-secondary)] mt-1">Preview not available for this file type</p>
+            </div>
+          )}
+        </div>
+        <div className="px-6 py-3 border-t border-gray-100 flex justify-end">
+          <p className="text-sm text-[var(--color-text-secondary)]">{file.name}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function UploadContractModal({ isOpen, onClose }) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [error, setError] = useState('');
+  const [previewFile, setPreviewFile] = useState(null);
 
   const validateFile = (file) => {
     const ext = file.name.split('.').pop()?.toLowerCase();
@@ -90,9 +138,11 @@ export default function UploadContractModal({ isOpen, onClose }) {
       if (progress >= 100) {
         clearInterval(timer);
         setUploadingFiles((prev) => prev.filter((f) => f.id !== id));
+        const isImage = /\.(png|jpe?g)$/i.test(file.name);
+        const _url = isImage ? URL.createObjectURL(file) : null;
         setUploadedFiles((prev) => [
           ...prev,
-          { id, name: file.name, size: file.size, type: getFileIcon(file.name) },
+          { id, name: file.name, size: file.size, type: getFileIcon(file.name), _url },
         ]);
       } else {
         setUploadingFiles((prev) =>
@@ -145,6 +195,7 @@ export default function UploadContractModal({ isOpen, onClose }) {
     setUploadedFiles([]);
     setUploadingFiles([]);
     setError('');
+    setPreviewFile(null);
     onClose();
   };
 
@@ -209,7 +260,7 @@ export default function UploadContractModal({ isOpen, onClose }) {
                 <span className="text-[var(--color-primary)] font-medium hover:underline">
                   Drop or drag file
                 </span>
-                <p className="text-gray-500 text-sm mt-1">doc, pdf, xsl</p>
+                <p className="text-gray-500 text-sm mt-1">doc, pdf, xls, png, jpg</p>
                 <p className="text-gray-500 text-sm">max size: {MAX_SIZE_MB}mb</p>
               </label>
             </div>
@@ -268,6 +319,13 @@ export default function UploadContractModal({ isOpen, onClose }) {
                     <p className="text-xs text-gray-500">{formatFileSize(item.size)}</p>
                   </div>
                   <button
+                    onClick={() => setPreviewFile(item)}
+                    className="p-2 text-gray-400 hover:text-[var(--color-primary)] transition-colors"
+                    aria-label="Preview file"
+                  >
+                    <EyeIcon />
+                  </button>
+                  <button
                     onClick={() => removeFile(item.id)}
                     className="p-2 text-gray-400 hover:text-red-500 transition-colors"
                     aria-label="Remove file"
@@ -290,6 +348,8 @@ export default function UploadContractModal({ isOpen, onClose }) {
           </button>
         </div>
       </div>
+
+      {previewFile && <PreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
     </div>
   );
 }

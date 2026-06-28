@@ -37,6 +37,13 @@ const emptyForm = () => ({
   loadingDate: '',
   unloadingDate: '',
   status: 'Still no info',
+  loadingReference: '',
+  unloadingReference: '',
+  quantity: '',
+  quantityUnit: 'M',
+  itemType: '',
+  price: '',
+  comment: '',
 });
 
 export default function ContractFormModal({ isOpen, onClose, initialContract, onSubmit, loading: externalLoading }) {
@@ -58,6 +65,13 @@ export default function ContractFormModal({ isOpen, onClose, initialContract, on
           loadingDate: toInputDate(initialContract.loadingDate),
           unloadingDate: toInputDate(initialContract.unloadingDate),
           status: initialContract.status ?? 'Still no info',
+          loadingReference: initialContract.loadingReference ?? '',
+          unloadingReference: initialContract.unloadingReference ?? '',
+          quantity: initialContract.quantity ?? '',
+          quantityUnit: initialContract.quantityUnit ?? 'M',
+          itemType: initialContract.itemType ?? '',
+          price: initialContract.price ?? '',
+          comment: initialContract.comment ?? '',
         });
       } else {
         setForm(emptyForm());
@@ -93,11 +107,13 @@ export default function ContractFormModal({ isOpen, onClose, initialContract, on
         aria-hidden="true"
       />
       <div
-        className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-xl shadow-2xl border border-gray-200 transition-opacity duration-300 ${
+        className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col transition-opacity duration-300 ${
           isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
+        style={{ maxHeight: '90vh' }}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        {/* Fixed header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
             {isEdit ? 'Edit Contract' : 'Create Contract'}
           </h2>
@@ -111,88 +127,164 @@ export default function ContractFormModal({ isOpen, onClose, initialContract, on
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <ErrorMessage message={error} onDismiss={() => setError('')} />
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          {/* Scrollable fields */}
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+            <ErrorMessage message={error} onDismiss={() => setError('')} />
 
-          <div>
-            <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Client Name</label>
-            <input
-              type="text"
-              value={form.clientName}
-              onChange={(e) => handleChange('clientName', e.target.value)}
-              placeholder="Client Name"
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Carrier Name</label>
-            <input
-              type="text"
-              value={form.carrierName}
-              onChange={(e) => handleChange('carrierName', e.target.value)}
-              placeholder="Carrier Name"
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Contract Nr.</label>
-            <input
-              type="text"
-              value={form.contractNr}
-              onChange={(e) => handleChange('contractNr', e.target.value)}
-              placeholder="Contract Nr."
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Loading date</label>
-            <div className="relative">
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Client Name</label>
               <input
-                type="date"
-                value={form.loadingDate}
-                onChange={(e) => handleChange('loadingDate', e.target.value)}
+                type="text"
+                value={form.clientName}
+                onChange={(e) => handleChange('clientName', e.target.value)}
+                placeholder="Client Name"
                 required
-                className={`${inputClass} pr-10`}
+                className={inputClass}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <CalendarIcon />
-              </span>
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Carrier Name</label>
+              <input
+                type="text"
+                value={form.carrierName}
+                onChange={(e) => handleChange('carrierName', e.target.value)}
+                placeholder="Carrier Name"
+                required
+                className={inputClass}
+              />
+            </div>
+            {isEdit && form.contractNr && (
+              <div>
+                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Contract Nr.</label>
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border border-[var(--color-border)] rounded-[var(--radius-md)]">
+                  <span className="text-sm font-semibold text-[var(--color-primary)]">{form.contractNr}</span>
+                  <span className="text-xs text-[var(--color-text-secondary)]">(auto-assigned)</span>
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Loading date</label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={form.loadingDate}
+                  onChange={(e) => handleChange('loadingDate', e.target.value)}
+                  required
+                  className={`${inputClass} pr-10`}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <CalendarIcon />
+                </span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Unloading date</label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={form.unloadingDate}
+                  onChange={(e) => handleChange('unloadingDate', e.target.value)}
+                  required
+                  className={`${inputClass} pr-10`}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <CalendarIcon />
+                </span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Status</label>
+              <select
+                value={form.status}
+                onChange={(e) => handleChange('status', e.target.value)}
+                className={`${inputClass} appearance-none bg-white`}
+              >
+                {CONTRACT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Loading Reference</label>
+              <input
+                type="text"
+                value={form.loadingReference}
+                onChange={(e) => handleChange('loadingReference', e.target.value)}
+                placeholder="Loading reference"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Unloading Reference</label>
+              <input
+                type="text"
+                value={form.unloadingReference}
+                onChange={(e) => handleChange('unloadingReference', e.target.value)}
+                placeholder="Unloading reference"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Quantity M / KG</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={form.quantity}
+                  onChange={(e) => handleChange('quantity', e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className={`${inputClass} flex-1`}
+                />
+                <select
+                  value={form.quantityUnit}
+                  onChange={(e) => handleChange('quantityUnit', e.target.value)}
+                  className="px-3 py-2.5 border border-[var(--color-border)] rounded-[var(--radius-md)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent bg-white"
+                >
+                  <option value="M">M</option>
+                  <option value="KG">KG</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Item Type</label>
+              <input
+                type="text"
+                value={form.itemType}
+                onChange={(e) => handleChange('itemType', e.target.value)}
+                placeholder="Item type"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Price</label>
+              <input
+                type="number"
+                value={form.price}
+                onChange={(e) => handleChange('price', e.target.value)}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Comment</label>
+              <textarea
+                value={form.comment}
+                onChange={(e) => handleChange('comment', e.target.value)}
+                placeholder="Write a comment..."
+                rows={3}
+                className={`${inputClass} resize-none`}
+              />
             </div>
           </div>
-          <div>
-            <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Unloading date</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={form.unloadingDate}
-                onChange={(e) => handleChange('unloadingDate', e.target.value)}
-                required
-                className={`${inputClass} pr-10`}
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <CalendarIcon />
-              </span>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm text-[var(--color-text-secondary)] mb-1">Status</label>
-            <select
-              value={form.status}
-              onChange={(e) => handleChange('status', e.target.value)}
-              className={`${inputClass} appearance-none bg-white`}
-            >
-              {CONTRACT_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
 
-          <div className="flex gap-3 pt-2">
+          {/* Fixed footer with action buttons */}
+          <div className="flex gap-3 px-6 py-4 border-t border-gray-200 flex-shrink-0">
             <Button type="button" onClick={onClose} className="flex-1" variant="secondary">
               Cancel
             </Button>

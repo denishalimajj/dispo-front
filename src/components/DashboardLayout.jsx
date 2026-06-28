@@ -80,12 +80,12 @@ const Icons = {
 
 const mainNavItems = [
   { icon: Icons.chart, label: 'Dashboard', path: '/dashboard' },
-  { icon: Icons.user, label: 'Users', path: '/dashboard' },
+  { icon: Icons.user, label: 'Users', path: '/users' },
   { icon: Icons.document, label: 'Contracts', path: '/contracts' },
-  { icon: Icons.bell, label: 'Notification', path: '/dashboard' },
+  { icon: Icons.bell, label: 'Notification', path: '/notifications' },
 ];
 const footerNavItems = [
-  { icon: Icons.gear, label: 'Settings', path: '/dashboard' },
+  { icon: Icons.gear, label: 'Settings', path: '/settings' },
   { icon: Icons.chat, label: 'Help & Support', path: '/dashboard', badge: '24' },
 ];
 

@@ -25,6 +25,7 @@ const CONTRACT_STATUSES = [
 ];
 
 const EDITABLE_FIELDS = ['contractNr', 'clientName', 'carrierName', 'loadingDate', 'unloadingDate', 'status'];
+const PAGE_SIZE = 15;
 
 const inputClass = 'w-full min-w-0 px-2 py-1 text-sm border border-[var(--color-primary)] rounded focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]';
 
@@ -100,6 +101,7 @@ export default function Contracts() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [editingCell, setEditingCell] = useState(null); // { rowId, field }
   const [savingCell, setSavingCell] = useState(false);
+  const [page, setPage] = useState(1);
 
   const fetchContracts = useCallback(async () => {
     setLoading(true);
@@ -107,6 +109,7 @@ export default function Contracts() {
     try {
       const list = await listContracts(statusFilter);
       setContracts(list);
+      setPage(1);
     } catch (err) {
       setError(err.message || 'Failed to load contracts');
     } finally {
@@ -205,12 +208,19 @@ export default function Contracts() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === contracts.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(contracts.map((c) => c.id)));
-    }
+    const pageIds = paginated.map((c) => c.id);
+    const allSelected = pageIds.every((id) => selectedIds.has(id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
   };
+
+  const totalPages = Math.max(1, Math.ceil(contracts.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginated = contracts.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   return (
     <DashboardLayout>
@@ -275,7 +285,7 @@ export default function Contracts() {
         {/* Table card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Table */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" style={{ minHeight: '200px' }}>
             {loading ? (
               <div className="py-12 text-center text-[var(--color-text-secondary)]">Loading contracts…</div>
             ) : (
@@ -285,7 +295,7 @@ export default function Contracts() {
                     <th className="text-left py-3 px-4 w-12">
                       <input
                         type="checkbox"
-                        checked={contracts.length > 0 && selectedIds.size === contracts.length}
+                        checked={paginated.length > 0 && paginated.every((c) => selectedIds.has(c.id))}
                         onChange={toggleSelectAll}
                         className="rounded border-gray-300 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
                       />
@@ -307,7 +317,7 @@ export default function Contracts() {
                       </td>
                     </tr>
                   ) : (
-                    contracts.map((row) => (
+                    paginated.map((row) => (
                       <tr
                         key={row.id}
                         className="border-b border-gray-100 hover:bg-gray-50/80 transition-colors"
@@ -458,6 +468,64 @@ export default function Contracts() {
               </table>
             )}
           </div>
+
+          {/* Pagination footer */}
+          {contracts.length > 0 && (
+            <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100">
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                Showing{' '}
+                <span className="font-medium text-[var(--color-text-primary)]">
+                  {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, contracts.length)}
+                </span>{' '}
+                of{' '}
+                <span className="font-medium text-[var(--color-text-primary)]">{contracts.length}</span>{' '}
+                contracts
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  ‹ Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                  .reduce((acc, p, idx, arr) => {
+                    if (idx > 0 && p - arr[idx - 1] > 1) acc.push('…');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === '…' ? (
+                      <span key={`ellipsis-${idx}`} className="px-2 py-1.5 text-sm text-gray-400">…</span>
+                    ) : (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => setPage(item)}
+                        className={`w-8 h-8 text-sm rounded-lg font-medium transition-colors ${
+                          item === safePage
+                            ? 'bg-[var(--color-primary)] text-white'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    )
+                  )}
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next ›
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

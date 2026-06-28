@@ -4,9 +4,6 @@ const authHeaders = () => ({
   Authorization: `Bearer ${getToken()}`,
 });
 
-/**
- * Normalize API contract (snake_case) to frontend shape (camelCase).
- */
 function toContract(api) {
   if (!api) return null;
   return {
@@ -17,99 +14,81 @@ function toContract(api) {
     loadingDate: api.loading_date,
     unloadingDate: api.unloading_date,
     status: api.status,
+    loadingReference: api.loading_reference ?? '',
+    unloadingReference: api.unloading_reference ?? '',
+    quantity: api.quantity ?? '',
+    quantityUnit: api.quantity_unit ?? 'M',
+    itemType: api.item_type ?? '',
+    price: api.price ?? '',
+    comment: api.comment ?? '',
   };
 }
 
-/**
- * Build request body for create/update from form (camelCase) to API (snake_case).
- * Dates must be YYYY-MM-DD.
- */
 function toApiPayload(form) {
-  const payload = {
-    contract_number: form.contractNr,
+  return {
     client_name: form.clientName,
     carrier_name: form.carrierName,
     loading_date: form.loadingDate,
     unloading_date: form.unloadingDate,
     status: form.status,
+    loading_reference: form.loadingReference || null,
+    unloading_reference: form.unloadingReference || null,
+    quantity: form.quantity || null,
+    quantity_unit: form.quantityUnit || null,
+    item_type: form.itemType || null,
+    price: form.price || null,
+    comment: form.comment || null,
   };
-  return payload;
 }
 
-/**
- * GET /contracts/ — list all, or filter by status.
- * @param {string} [status] - optional status filter
- * @returns {Promise<Array>} contracts (camelCase)
- */
-export async function listContracts(status = null) {
-  const base = getApiUrl();
-  const url = status ? `${base}/contracts/?status=${encodeURIComponent(status)}` : `${base}/contracts/`;
-  const res = await fetch(url, { headers: authHeaders() });
+async function handleResponse(res, fallback) {
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    const detail = Array.isArray(data.detail) ? data.detail.map((d) => d.msg || d).join(', ') : (data.detail || 'Failed to load contracts');
+    const detail = Array.isArray(data.detail)
+      ? data.detail.map((d) => d.msg || d).join(', ')
+      : data.detail || fallback;
     throw new Error(detail);
   }
-  const list = await res.json();
+  return res.status === 204 ? null : res.json();
+}
+
+export async function listContracts(status = null) {
+  const base = getApiUrl();
+  const url = status
+    ? `${base}/contracts/?status=${encodeURIComponent(status)}`
+    : `${base}/contracts/`;
+  const res = await fetch(url, { headers: authHeaders() });
+  const list = await handleResponse(res, 'Failed to load contracts');
   return list.map(toContract);
 }
 
-/**
- * GET /contracts/{id}
- */
 export async function getContract(id) {
-  const base = getApiUrl();
-  const res = await fetch(`${base}/contracts/${id}`, { headers: authHeaders() });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.detail || 'Contract not found');
-  }
-  return toContract(await res.json());
+  const res = await fetch(`${getApiUrl()}/contracts/${id}`, { headers: authHeaders() });
+  return toContract(await handleResponse(res, 'Contract not found'));
 }
 
-/**
- * POST /contracts/ — create. Payload: { contractNr, clientName, carrierName, loadingDate, unloadingDate, status }
- */
 export async function createContract(form) {
-  const base = getApiUrl();
-  const res = await fetch(`${base}/contracts/`, {
+  const res = await fetch(`${getApiUrl()}/contracts/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(toApiPayload(form)),
   });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    const detail = Array.isArray(data.detail) ? data.detail.map((d) => d.msg || d).join(', ') : (data.detail || 'Failed to create contract');
-    throw new Error(detail);
-  }
-  return toContract(await res.json());
+  return toContract(await handleResponse(res, 'Failed to create contract'));
 }
 
-/**
- * PATCH /contracts/{id}
- */
 export async function updateContract(id, form) {
-  const base = getApiUrl();
-  const res = await fetch(`${base}/contracts/${id}`, {
+  const res = await fetch(`${getApiUrl()}/contracts/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(toApiPayload(form)),
   });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.detail || 'Failed to update contract');
-  }
-  return toContract(await res.json());
+  return toContract(await handleResponse(res, 'Failed to update contract'));
 }
 
-/**
- * DELETE /contracts/{id}
- */
 export async function deleteContract(id) {
-  const base = getApiUrl();
-  const res = await fetch(`${base}/contracts/${id}`, { method: 'DELETE', headers: authHeaders() });
-  if (!res.ok && res.status !== 204) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.detail || 'Failed to delete contract');
-  }
+  const res = await fetch(`${getApiUrl()}/contracts/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  await handleResponse(res, 'Failed to delete contract');
 }
